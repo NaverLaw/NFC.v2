@@ -52,11 +52,42 @@ const viewUserProfile = async (userUID) => {
   }
 };
 
+const signInWithGoogle = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+    const user = result.user;
+
+    // Перевіряємо, чи існує профіль користувача в Firestore
+    const userDocRef = doc(db, "profiles", user.uid);
+    const userDoc = await getDoc(userDocRef);
+
+    if (!userDoc.exists()) {
+      // Якщо профіль не існує, створюємо новий
+      await setDoc(userDocRef, {
+        name: user.displayName,
+        email: user.email,
+        phone: "",
+        contacts: [],
+      });
+      console.log("New user profile created!");
+    } else {
+      console.log("User already exists!");
+    }
+
+    console.log("User signed in:", user.displayName);
+  } catch (error) {
+    console.error("Error signing in with Google:", error.message);
+  }
+};
+
 function Login() {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
       <h1 className="text-6xl font-bold mb-8">Protect Your Data</h1>
-      <button className="bg-orange-500 text-white px-6 py-3 rounded-full text-lg">
+      <button
+        className="bg-orange-500 text-white px-6 py-3 rounded-full text-lg"
+        onClick={signInWithGoogle} // Додаємо обробник кліку
+      >
         Sign in with Google
       </button>
       <Link to="/users" className="mt-4 text-blue-500 underline">
