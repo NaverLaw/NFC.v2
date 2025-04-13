@@ -1,88 +1,73 @@
-import { useParams, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import React, { useState, useEffect } from "react";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { db, auth } from "../firebase";
 
-function ProfileView({ profiles, user }) {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const profile = profiles[id];
+const ProfileView = ({ userUID }) => {
+  const [profile, setProfile] = useState(null);
+  const [error, setError] = useState("");
 
-  if (!profile) {
-    return <div className="min-h-screen bg-black text-white p-8">Profile not found.</div>;
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const userDocRef = doc(db, "profiles", userUID);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          setProfile(userDoc.data());
+        } else {
+          setError("Profile not found!");
+        }
+      } catch (err) {
+        setError("Error loading profile: " + err.message);
+      }
+    };
+
+    fetchProfile();
+  }, [userUID]);
+
+  const handleAddToContacts = async () => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        alert("You need to log in to add contacts.");
+        return;
+      }
+
+      const currentUserDocRef = doc(db, "profiles", currentUser.uid);
+      const currentUserDoc = await getDoc(currentUserDocRef);
+
+      if (currentUserDoc.exists()) {
+        const currentContacts = currentUserDoc.data().contacts || [];
+        if (!currentContacts.includes(userUID)) {
+          await updateDoc(currentUserDocRef, {
+            contacts: [...currentContacts, userUID],
+          });
+          alert("User added to contacts!");
+        } else {
+          alert("User is already in your contacts.");
+        }
+      }
+    } catch (err) {
+      console.error("Error adding to contacts:", err.message);
+    }
+  };
+
+  if (error) {
+    return <div>{error}</div>;
   }
 
-  const handleEdit = () => {
-    navigate("/profile");
-  };
-
-  const handleAddToContacts = () => {
-    const vCard = `
-BEGIN:VCARD
-VERSION:3.0
-FN:${profile.fullName}
-ORG:${profile.companyName}
-TEL:${profile.phone}
-EMAIL:${profile.email}
-URL:${profile.website}
-NOTE:${profile.description}
-END:VCARD
-    `.trim();
-
-    const blob = new Blob([vCard], { type: "text/vcard" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${profile.fullName}.vcf`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
+  if (!profile) {
+    return <div>Loading...</div>;
+  }
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
-      <motion.div
-        className="max-w-2xl mx-auto bg-gray-800 p-6 rounded-lg"
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 1 }}
-      >
-        {profile.photo && (
-          <img
-            src={profile.photo}
-            alt="Profile"
-            className="w-32 h-32 rounded-full mx-auto mb-4"
-          />
-        )}
-        <h1 className="text-3xl font-bold">{profile.fullName}</h1>
-        <p className="text-lg">{profile.companyName}</p>
-        <p>{profile.companyDescription}</p>
-        <p>Phone: {profile.phone}</p>
-        <p>Email: {profile.email}</p>
-        {profile.website && (
-          <p>
-            Website: <a href={profile.website} className="text-orange-500">{profile.website}</a>
-          </p>
-        )}
-        {profile.description && <p>Description: {profile.description}</p>}
-        <motion.button
-          onClick={handleAddToContacts}
-          className="bg-orange-500 text-white px-6 py-3 rounded-full mt-4"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          Add to Contacts
-        </motion.button>
-        {user && user.uid === id && (
-          <motion.button
-            onClick={handleEdit}
-            className="bg-gray-500 text-white px-6 py-3 rounded-full mt-4 ml-4"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            Edit Profile
-          </motion.button>
-        )}
-      </motion.div>
+    <div className="profile-view">
+      <h1>{profile.name}</h1>
+      <p>Email: {profile.email}</p>
+      <p>Phone: {profile.phone}</p>
+      <button onClick={handleAddToContacts}>Add to Contacts</button>
     </div>
   );
-}
+};
 
 export default ProfileView;
