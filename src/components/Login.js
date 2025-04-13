@@ -2,7 +2,6 @@ import { motion } from "framer-motion";
 import { auth, googleProvider, db } from "../firebase";
 import { signInWithPopup } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
-import { Link } from "react-router-dom";
 
 const loadUserProfile = async (userUID) => {
   try {
@@ -21,12 +20,6 @@ const loadUserProfile = async (userUID) => {
 
 const updateUserProfile = async (userUID, updatedData) => {
   try {
-    const currentUser = auth.currentUser;
-    if (!currentUser || currentUser.uid !== userUID) {
-      console.error("You are not authorized to update this profile.");
-      return;
-    }
-
     const userDocRef = doc(db, "profiles", userUID);
     await updateDoc(userDocRef, updatedData);
     console.log("Profile updated!");
@@ -41,58 +34,60 @@ const viewUserProfile = async (userUID) => {
     const userDoc = await getDoc(userDocRef);
 
     if (userDoc.exists()) {
-      return userDoc.data(); // Завжди повертаємо дані профілю
+      return userDoc.data(); // Повертаємо дані профілю для перегляду
     } else {
       console.error("Profile not found!");
-      return null; // Повертаємо null, якщо профіль не знайдено
     }
   } catch (error) {
     console.error("Error viewing profile:", error.message);
-    return null; // Повертаємо null у разі помилки
-  }
-};
-
-const signInWithGoogle = async () => {
-  try {
-    const result = await signInWithPopup(auth, googleProvider);
-    const user = result.user;
-
-    // Перевіряємо, чи існує профіль користувача в Firestore
-    const userDocRef = doc(db, "profiles", user.uid);
-    const userDoc = await getDoc(userDocRef);
-
-    if (!userDoc.exists()) {
-      // Якщо профіль не існує, створюємо новий
-      await setDoc(userDocRef, {
-        name: user.displayName,
-        email: user.email,
-        phone: "",
-        contacts: [],
-      });
-      console.log("New user profile created!");
-    } else {
-      console.log("User already exists!");
-    }
-
-    console.log("User signed in:", user.displayName);
-  } catch (error) {
-    console.error("Error signing in with Google:", error.message);
   }
 };
 
 function Login() {
+  const handleGoogleSignIn = async () => {
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Check if profile exists in Firestore
+      const userDocRef = doc(db, "profiles", user.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        // If profile does not exist, create a new one
+        await setDoc(userDocRef, {
+          name: user.displayName,
+          email: user.email,
+          phone: "",
+          contacts: [],
+        });
+        console.log("New profile created!");
+      } else {
+        console.log("Profile loaded:", userDoc.data());
+      }
+    } catch (error) {
+      console.error("Error during sign-in:", error.message);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center text-white">
-      <h1 className="text-6xl font-bold mb-8">Protect Your Data</h1>
-      <button
+      <motion.h1
+        className="text-6xl font-bold mb-8"
+        initial={{ opacity: 0, y: -50 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 1 }}
+      >
+        Protect Your Data
+      </motion.h1>
+      <motion.button
+        onClick={handleGoogleSignIn}
         className="bg-orange-500 text-white px-6 py-3 rounded-full text-lg"
-        onClick={signInWithGoogle} // Додаємо обробник кліку
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
       >
         Sign in with Google
-      </button>
-      <Link to="/users" className="mt-4 text-blue-500 underline">
-        View All Users
-      </Link>
+      </motion.button>
     </div>
   );
 }
